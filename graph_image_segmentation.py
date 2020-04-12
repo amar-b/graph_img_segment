@@ -4,15 +4,18 @@ from itertools import product, chain
 from functools import partial, reduce
 from sys import argv
 from multiprocessing import Pool
-import ntpath
-import heapq 
+import warnings
 
 # dependencies
 import networkx as nx
 import numpy as np
-from scipy import ndimage
+import cv2
 from imageio import imread, imwrite
+from colormath.color_objects import LabColor, sRGBColor
+from colormath.color_conversions import convert_color
+from colormath.color_diff import delta_e_cie2000
 
+# python-colormath
 class Component:
     def __init__(self, rep_id, size):
         self.rep_id = rep_id
@@ -37,15 +40,11 @@ class DisjointSet:
         self._comp = None
         self.get_component()
 
-    def __eq__(self, other):
-        if type(self) != type(other):
-            return False
-        return self.id == other.id
+    # def __eq__(self, other):
+    #     return self.id == other.id
 
-    # def __ne__(self, other):
-    #     if type(self) != type(other):
-    #         return True
-    #     return self.id != other.id
+    def __ne__(self, other):
+        return self.id != other.id
 
     def __hash__(self):
         return hash((self.id, self.rank))
@@ -91,35 +90,41 @@ def rnd_color():
 def int_diff(pixel_a, pixel_b, im):
     return math.sqrt(abs(im[pixel_a] - im[pixel_b]))
 
-def int_diff_color(pixel_a, pixel_b, im):
-    return math.sqrt(sum( math.pow(im[pixel_a+(i,)] - im[pixel_b+(i,)], 2) for i in range(3)))
+def int_diff_color(pixel_a, pixel_b, lab):
+  #  print(lab)
+    return math.sqrt(sum( math.pow(c[pixel_a] - c[pixel_b], 2) for c in lab))
 
-def get_edge(pos, im):
-    shape = im.shape
+def get_edge(pos, shape, lab):
     rows, cols = shape[0], shape[1]
     adj_edges = []
-
+    is_color = len(shape) == 3
     for nbr in [(pos[0]+d[0], pos[1]+d[1]) for d in ADJ]:
 
         if 0 <= nbr[0] < rows and 0 <= nbr[1] < cols:
-            if len(shape) == 2:
-                weight = {"intensity_diff": int_diff(pos, nbr, im)}
+            if is_color:
+                weight = {"intensity_diff": int_diff_color(pos, nbr, lab)}
             else:
-                weight = {"intensity_diff": int_diff_color(pos, nbr, im)}
+                weight = {"intensity_diff": int_diff(pos, nbr, lab)}
             adj_edges.append((pos, nbr, weight))
 
     return adj_edges
 
 def get_image_graph(mode, sigma=0):
-    im = ndimage.gaussian_filter(imread(filepath,  pilmode=mode), sigma)
+   # im = ndimage.gaussian_filter(imread(filepath,  pilmode=mode), sigma).astype(np.float64)
+    im = np.float32(cv2.imread(filepath, -1))/255.
+    im = cv2.GaussianBlur(im,(5,5),0)
+    im = cv2.cvtColor(im, cv2.COLOR_RGB2Lab)
+
     shape = im.shape
     print("image shape:", im.shape)
 
     G = nx.Graph()
-    f = partial(get_edge, im=im)
+    f = partial(get_edge, shape = shape, lab= cv2.split(im))
     itr = product(range(shape[0]), range(shape[1]))
+   # print(len(list(itr)))
     l = pool.map(f, itr)
     G.add_edges_from(chain(*l))
+    print(type(G))
     return G
 
 def draw_segmentation(G, shape):
@@ -155,38 +160,16 @@ def segment(G, k, weight_key):
         if (n_i.find_set() != n_j.find_set()) and w_q <= min_internal_diff(n_i, n_j, k):
             n_i.union(n_j)
             n_i.get_component().int = w_q
+    for id_i, id_j, w_q in sorted_edges:
+        n_i, n_j = forest[id_i], forest[id_j]
+        if n_i.find_set() != n_j.find_set() and min(n_i.get_component().size, n_j.get_component().size) <100:
+            n_i.union(n_j)
 
     return {k: v.get_component().color for k,v in forest.items()}
 
 def segment_and_update_graph(G, k=1):
     cs = segment(G, k, "intensity_diff")
     nx.set_node_attributes(G, cs, 'component')
-
-
-# def distance(data, query):
-#     return np.sqrt(np.square(data-query).sum(axis=1))
-
-# def knn(data, k):
-#     edges = []
-#     print("finding knn")
-#     for i in range(len(data)):
-#         distances = distance(data, data[i])
-        
-#         heap = [(d, tuple(data[j])) for j, d in enumerate(distances) if i != j]
-#         heapq.heapify(heap)     
-#         nearest_nbrs = [heapq.heappop(heap)[1] for _ in range(k)]
-
-#     print('done')
-
-# def flatten_im_matrix(im):
-#     row, cols, color = im.shape
-#     coords = list(product(range(row), range(cols)))
-#     m = np.zeros( (len(coords),5))
-#     for i, (r,c) in enumerate(coords):
-#         m[i] = [r,c, im[r,c,0], im[r,c,1], im[r,c,2]]
-#     print(m)
-#     knn(m, 10)
-#     return m
 
 if __name__ == "__main__":
     pool = Pool()
@@ -196,10 +179,11 @@ if __name__ == "__main__":
     
     input_im = imread(filepath,  pilmode=mode)
 
-    G = get_image_graph(mode, sigma=0.8)
+    G = get_image_graph(mode, sigma=0.9)
 
-    segment_and_update_graph(G, k=3000)
+    segment_and_update_graph(G, k=400)
 
     draw_segmentation(G, input_im.shape)
 
+    # https://en.wikipedia.org/wiki/Color_difference
     #print(flatten_im_matrix(input_im))

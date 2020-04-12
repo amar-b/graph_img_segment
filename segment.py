@@ -10,9 +10,7 @@ import argparse
 import networkx as nx
 import numpy as np
 import cv2
-from imageio import imread, imwrite
 
-# python-colormath
 class Component:
     def __init__(self, rep_id, size):
         self.rep_id = rep_id
@@ -76,7 +74,6 @@ class DisjointSet:
 
 # Tools
 ADJ = [(i,j) for i in (-1,0,1) for j in (-1,0,1) if not (i == j == 0)]
-RGB = ['r', 'g' 'b']
 
 def rnd_color():
     return (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
@@ -85,7 +82,6 @@ def int_diff(pixel_a, pixel_b, im):
     return math.sqrt(abs(im[pixel_a] - im[pixel_b]))
 
 def int_diff_color(pixel_a, pixel_b, lab):
-  #  print(lab)
     return math.sqrt(sum( math.pow(c[pixel_a] - c[pixel_b], 2) for c in lab))
 
 def get_edge(pos, shape, lab):
@@ -114,7 +110,7 @@ def get_image_graph(im, sigma=0.8):
     print("image shape:", shape)
 
     G = nx.Graph()
-    f = partial(get_edge, shape = shape, lab= cv2.split(im))
+    f = partial(get_edge, shape=shape, lab=cv2.split(im))
     itr = product(range(shape[0]), range(shape[1]))
     l = pool.map(f, itr)
     G.add_edges_from(chain(*l))
@@ -173,9 +169,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Graph based image segmentation')
     parser.add_argument('input',    help='Input file path')
     parser.add_argument('output', help='Output file path')
-    parser.add_argument('-s', '--sigma',   dest='sigma',   type=float,default=0.5, help='Sigma value for gaussian blur (default=0.5)')
-    parser.add_argument('-k', '--k',       dest='k',       type=int,  default=300, help='Min size for each component (default=300')
-    parser.add_argument('-m', '--minsize', dest='minsize', type=int,  default=0,  help='Constant used in segmentation (default 0)')
+    parser.add_argument('-s', dest='sigma',   type=float,default=0.5, help='Sigma value for gaussian blur (default=0.5)')
+    parser.add_argument('-k', dest='k',       type=int,  default=300, help='Min size for each component (default=300)')
+    parser.add_argument('-m', dest='minsize', type=int,  default=0,  help='Constant used in segmentation (default 0)')
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -194,6 +190,3 @@ if __name__ == "__main__":
     # save image
     output_im = draw_segmentation(G, input_im.shape)
     cv2.imwrite(args.output, output_im)
-
-    # py.exe .\segment.py .\flag.jpg .\flag_out.png -k 1000 -s 0 -m 100
-    

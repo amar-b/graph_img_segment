@@ -23,6 +23,6 @@ positional arguments:
 optional arguments:
   -h, --help  show this help message and exit
   -s SIGMA    Sigma value for gaussian blur (default=0.5)
-  -k K        Min size for each component (default=300)
-  -m MINSIZE  Constant used in segmentation (default 0)
+  -k K        Constant used in segmentation (default 300)
+  -m MINSIZE  Min size of each component (default 0)
 ```

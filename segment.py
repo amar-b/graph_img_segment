@@ -4,16 +4,13 @@ from itertools import product, chain
 from functools import partial, reduce
 from sys import argv
 from multiprocessing import Pool
-import warnings
+import argparse
 
 # dependencies
 import networkx as nx
 import numpy as np
 import cv2
 from imageio import imread, imwrite
-from colormath.color_objects import LabColor, sRGBColor
-from colormath.color_conversions import convert_color
-from colormath.color_diff import delta_e_cie2000
 
 # python-colormath
 class Component:
@@ -39,9 +36,6 @@ class DisjointSet:
         self.rank = 0
         self._comp = None
         self.get_component()
-
-    # def __eq__(self, other):
-    #     return self.id == other.id
 
     def __ne__(self, other):
         return self.id != other.id
@@ -109,25 +103,25 @@ def get_edge(pos, shape, lab):
 
     return adj_edges
 
-def get_image_graph(mode, sigma=0):
-   # im = ndimage.gaussian_filter(imread(filepath,  pilmode=mode), sigma).astype(np.float64)
-    im = np.float32(cv2.imread(filepath, -1))/255.
-    im = cv2.GaussianBlur(im,(5,5),0)
+def get_image_graph(im, sigma=0.8):
+    print("Reading image as graph")
+    im = np.float32(im)/255.
+    if sigma > 0:
+        im = cv2.GaussianBlur(im,(5,5),sigma)
     im = cv2.cvtColor(im, cv2.COLOR_RGB2Lab)
 
     shape = im.shape
-    print("image shape:", im.shape)
+    print("image shape:", shape)
 
     G = nx.Graph()
     f = partial(get_edge, shape = shape, lab= cv2.split(im))
     itr = product(range(shape[0]), range(shape[1]))
-   # print(len(list(itr)))
     l = pool.map(f, itr)
     G.add_edges_from(chain(*l))
-    print(type(G))
     return G
 
 def draw_segmentation(G, shape):
+    print("Drawing segmentation")
     if (len(shape) == 3):
         rows, cols, _ = shape
     else:
@@ -137,7 +131,7 @@ def draw_segmentation(G, shape):
         im[r,c, 0] = rgb[0]
         im[r,c, 1] = rgb[1]
         im[r,c, 2] = rgb[2]
-    imwrite('z.jpg', im)
+    return im
 
 
 # Segmentation from NX graph
@@ -150,7 +144,7 @@ def min_internal_diff(n_i, n_j, k):
     mint = min(comp_value(c_i), comp_value(c_j))
     return mint
 
-def segment(G, k, weight_key):
+def segment(G, k, weight_key, min_size=0):
     sorted_edges = sorted(G.edges(data=weight_key), key=lambda e: e[2])
     forest = {n: make_set(n) for n in G.nodes()}
 
@@ -160,30 +154,46 @@ def segment(G, k, weight_key):
         if (n_i.find_set() != n_j.find_set()) and w_q <= min_internal_diff(n_i, n_j, k):
             n_i.union(n_j)
             n_i.get_component().int = w_q
+
+    # remove small components
     for id_i, id_j, w_q in sorted_edges:
         n_i, n_j = forest[id_i], forest[id_j]
-        if n_i.find_set() != n_j.find_set() and min(n_i.get_component().size, n_j.get_component().size) <100:
+        if n_i.find_set() != n_j.find_set() and min(n_i.get_component().size, n_j.get_component().size) < min_size:
             n_i.union(n_j)
 
     return {k: v.get_component().color for k,v in forest.items()}
 
-def segment_and_update_graph(G, k=1):
-    cs = segment(G, k, "intensity_diff")
+def segment_and_update_graph(G, k=300, min_size=0):
+    print("segmenting image")
+    cs = segment(G, k, "intensity_diff", min_size)
     nx.set_node_attributes(G, cs, 'component')
+
+# cli
+def parse_args():
+    parser = argparse.ArgumentParser(description='Graph based image segmentation')
+    parser.add_argument('input',    help='Input file path')
+    parser.add_argument('output', help='Output file path')
+    parser.add_argument('-s', '--sigma',   dest='sigma',   type=float,default=0.5, help='Sigma value for gaussian blur (default=0.5)')
+    parser.add_argument('-k', '--k',       dest='k',       type=int,  default=300, help='Min size for each component (default=300')
+    parser.add_argument('-m', '--minsize', dest='minsize', type=int,  default=0,  help='Constant used in segmentation (default 0)')
+    return parser.parse_args()
 
 if __name__ == "__main__":
     pool = Pool()
+    args = parse_args()
 
-    filepath = argv[1]
-    mode = "RGB" if argv[2] == "color" else "L"
+    # read image
+    input_im = cv2.imread(args.input, -1)
+
+    # convert image to graph
+    G = get_image_graph(input_im, sigma=args.sigma)
+
+    # segment
+    segment_and_update_graph(G, k=args.k, min_size=args.minsize)
+
+    # save image
+    output_im = draw_segmentation(G, input_im.shape)
+    cv2.imwrite(args.output, output_im)
+
+    # py.exe .\segment.py .\flag.jpg .\flag_out.png -k 1000 -s 0 -m 100
     
-    input_im = imread(filepath,  pilmode=mode)
-
-    G = get_image_graph(mode, sigma=0.9)
-
-    segment_and_update_graph(G, k=400)
-
-    draw_segmentation(G, input_im.shape)
-
-    # https://en.wikipedia.org/wiki/Color_difference
-    #print(flatten_im_matrix(input_im))

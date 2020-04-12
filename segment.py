@@ -170,8 +170,8 @@ def parse_args():
     parser.add_argument('input',    help='Input file path')
     parser.add_argument('output', help='Output file path')
     parser.add_argument('-s', dest='sigma',   type=float,default=0.5, help='Sigma value for gaussian blur (default=0.5)')
-    parser.add_argument('-k', dest='k',       type=int,  default=300, help='Min size for each component (default=300)')
-    parser.add_argument('-m', dest='minsize', type=int,  default=0,  help='Constant used in segmentation (default 0)')
+    parser.add_argument('-k', dest='k',       type=int,  default=300, help='Constant used in segmentation (default 300)')
+    parser.add_argument('-m', dest='minsize', type=int,  default=0,  help='Min size of each component (default 0)')
     return parser.parse_args()
 
 if __name__ == "__main__":

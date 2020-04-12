@@ -3,9 +3,26 @@ Based on the ["Efficient Graph-Based Image segmentation"](http://fcv2011.ulsan.a
 
 Uses the "Grid Graph" model. Graph is built and managed using the networkx library. 
 
-Uses the CIELAB "delta E" metric for edge weights instead of euclidean distances between rgb tuples rgb or the procedure described in the paper.
+Uses the CIELAB "delta E" metric for edge weights instead of euclidean distances between rgb tuples or the multi-segmentation procedure described in the paper.
 
 Example Usage:
 ```
 python segment.py flag.jpg flag_out.jpg -k 1000 -s 0 -m 100
+```
+
+Help:
+```
+usage: segment.py [-h] [-s SIGMA] [-k K] [-m MINSIZE] input output
+
+Graph based image segmentation
+
+positional arguments:
+  input       Input file path
+  output      Output file path
+
+optional arguments:
+  -h, --help  show this help message and exit
+  -s SIGMA    Sigma value for gaussian blur (default=0.5)
+  -k K        Constant used in segmentation (default 300)
+  -m MINSIZE  Min size of each component (default 0)
 ```

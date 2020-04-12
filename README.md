@@ -3,7 +3,7 @@ Based on the ["Efficient Graph-Based Image segmentation"](http://fcv2011.ulsan.a
 
 Uses the "Grid Graph" model. Graph is built and managed using the networkx library. 
 
-Uses the CIELAB "delta E" metric for edge weights instead of euclidean distances between rgb tuples rgb or the procedure described in the paper.
+Uses the CIELAB "delta E" metric for edge weights instead of euclidean distances between rgb tuples or the multi-segmentation procedure described in the paper.
 
 Example Usage:
 ```

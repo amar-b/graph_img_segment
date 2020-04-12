@@ -9,3 +9,20 @@ Example Usage:
 ```
 python segment.py flag.jpg flag_out.jpg -k 1000 -s 0 -m 100
 ```
+
+Help:
+```
+usage: segment.py [-h] [-s SIGMA] [-k K] [-m MINSIZE] input output
+
+Graph based image segmentation
+
+positional arguments:
+  input       Input file path
+  output      Output file path
+
+optional arguments:
+  -h, --help  show this help message and exit
+  -s SIGMA    Sigma value for gaussian blur (default=0.5)
+  -k K        Min size for each component (default=300)
+  -m MINSIZE  Constant used in segmentation (default 0)
+```
